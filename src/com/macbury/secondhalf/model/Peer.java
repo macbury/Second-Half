@@ -1,0 +1,70 @@
+package com.macbury.secondhalf.model;
+
+import com.j256.ormlite.field.DataType;
+import com.j256.ormlite.field.DatabaseField;
+import com.j256.ormlite.table.DatabaseTable;
+import com.macbury.secondhalf.App;
+import com.macbury.secondhalf.manager.EncryptionManager;
+
+@DatabaseTable(tableName = "peers")
+public class Peer {
+  @DatabaseField(unique=true, id=true)
+  private int    id;
+  @DatabaseField(canBeNull = false)
+  private boolean current   = false;
+  @DatabaseField(canBeNull = false, dataType=DataType.BYTE_ARRAY)
+  private byte[] publicKey;
+  @DatabaseField(canBeNull = false)
+  private String name;
+  @DatabaseField(canBeNull = false)
+  private String ip;
+  @DatabaseField(canBeNull = false, foreign = true)
+  private User user;
+  
+  private EncryptionManager encryptionManager;
+  
+  public int getId() {
+    return id;
+  }
+  public void setId(int id) {
+    this.id = id;
+  }
+  public boolean isCurrent() {
+    return current;
+  }
+  public void setCurrent(boolean current) {
+    this.current = current;
+  }
+  public byte[] getPublicKey() {
+    return publicKey;
+  }
+  public void setPublicKey(byte[] publicKey) {
+    this.publicKey = publicKey;
+  }
+  public String getName() {
+    return name;
+  }
+  public void setName(String name) {
+    this.name = name;
+  }
+  public String getIp() {
+    return ip;
+  }
+  public void setIp(String ip) {
+    this.ip = ip;
+  }
+  public User getUser() {
+    return user;
+  }
+  public void setUser(User user) {
+    this.user = user;
+  }
+  
+  public EncryptionManager getEncryptionManager() {
+    if (encryptionManager != null) {
+      encryptionManager = new EncryptionManager(App.shared().getApplicationContext(), this);
+    }
+    
+    return encryptionManager;
+  }
+}

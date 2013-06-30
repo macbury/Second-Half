@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="main_color">#FF96AA39</color>
+  <color name="header_color">#FFFFFFFF</color>
+  <color name="background_window">#FFE5E5E5</color>
+  <color name="footer_color">#66000000</color>
+  
+  <color name="drawer_background">#111</color>
+  <color name="drawer_activated_color">#444</color>
+</resources>

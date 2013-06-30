@@ -17,7 +17,8 @@ import com.j256.ormlite.stmt.query.In;
 import com.macbury.secondhalf.activity.LoginActivity;
 
 public class MyAccountManager implements AccountManagerCallback<Bundle> {
-  private static final String TAG = "MyAccountManager";
+  private static final String TAG         = "MyAccountManager";
+  public static final String KEY_PASSWORD = "KEY_PASSWORD";
   private Context context;
   
   public MyAccountManager(Context context) {
@@ -29,13 +30,13 @@ public class MyAccountManager implements AccountManagerCallback<Bundle> {
     Account account = getCurrentAccount();
     
     if (account == null) {
-      //am.invalidateAuthToken(AccountAuthenticator.ACCOUNT_TYPE, ); TODO: Save token here
+      //am.invalidateAuthToken(AccountAuthenticatorManager.ACCOUNT_TYPE, authToken)
       Intent intent = new Intent(c, LoginActivity.class);
       intent.putExtra(LoginActivity.EXTRA_RETURN_TO_MAIN_ACTIVITY, true);
       intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_TASK_ON_HOME | Intent.FLAG_ACTIVITY_NEW_TASK);
       c.startActivity(intent);
     } else {
-      am.getAuthToken(account, AccountAuthenticatorManager.ACCOUNT_TYPE, null, true, this, null);
+      //am.getAuthToken(account, AccountAuthenticatorManager.ACCOUNT_TYPE, null, true, this, null);
     }
   }
   
@@ -59,18 +60,18 @@ public class MyAccountManager implements AccountManagerCallback<Bundle> {
     try {
       String token = future.getResult().getString(AccountManager.KEY_AUTHTOKEN);
       if (token != null) {
+        Log.i(TAG, "pass: "+future.getResult().getString(MyAccountManager.KEY_PASSWORD));
         Log.i(TAG, "Token is: "+ token);
       } else {
         Log.i(TAG, "Token is null!");
       }
     } catch (OperationCanceledException e) {
       Log.i(TAG, "Account have been canceled!");
+      throw new RuntimeException(e);
     } catch (AuthenticatorException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      throw new RuntimeException(e);
     } catch (IOException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      throw new RuntimeException(e);
     }
   }
 

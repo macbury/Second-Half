@@ -6,6 +6,7 @@ import com.macbury.secondhalf.R.layout;
 import com.macbury.secondhalf.R.menu;
 import com.macbury.secondhalf.R.string;
 import com.macbury.secondhalf.manager.AccountAuthenticatorManager;
+import com.macbury.secondhalf.manager.MyAccountManager;
 
 import android.accounts.Account;
 import android.accounts.AccountAuthenticatorActivity;
@@ -98,18 +99,15 @@ public class LoginActivity extends AccountAuthenticatorActivity {
       return;
     }
 
-    // Reset errors.
     mEmailView.setError(null);
     mPasswordView.setError(null);
 
-    // Store values at the time of the login attempt.
-    mEmail = mEmailView.getText().toString();
+    mEmail    = mEmailView.getText().toString();
     mPassword = mPasswordView.getText().toString();
 
     boolean cancel = false;
     View focusView = null;
 
-    // Check for a valid password.
     if (TextUtils.isEmpty(mPassword)) {
       mPasswordView.setError(getString(R.string.error_field_required));
       focusView = mPasswordView;
@@ -120,7 +118,6 @@ public class LoginActivity extends AccountAuthenticatorActivity {
       cancel = true;
     }
 
-    // Check for a valid email address.
     if (TextUtils.isEmpty(mEmail)) {
       mEmailView.setError(getString(R.string.error_field_required));
       focusView = mEmailView;
@@ -132,12 +129,8 @@ public class LoginActivity extends AccountAuthenticatorActivity {
     }
 
     if (cancel) {
-      // There was an error; don't attempt login and focus the first
-      // form field with an error.
       focusView.requestFocus();
     } else {
-      // Show a progress spinner, and kick off a background task to
-      // perform the user login attempt.
       mLoginStatusMessageView.setText(R.string.login_progress_signing_in);
       showProgress(true);
       
@@ -153,7 +146,8 @@ public class LoginActivity extends AccountAuthenticatorActivity {
       intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, mEmail);
       intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
       intent.putExtra(AccountManager.KEY_AUTHTOKEN, accountType); 
-      //this.setAccountAuthenticatorResult(intent.getExtras());
+      intent.putExtra(MyAccountManager.KEY_PASSWORD, mPassword); 
+      //this.setAccountAuthenticatorResult(intent.getExtras());mPassword
       this.setAccountAuthenticatorResult(intent.getExtras());
       this.setResult(RESULT_OK, intent);
       if (startedFromMainActivity) {

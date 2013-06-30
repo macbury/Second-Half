@@ -16,7 +16,8 @@ import com.macbury.secondhalf.activity.LoginActivity;
 
 public class AccountAuthenticatorManager extends AbstractAccountAuthenticator {
   public static final String ACCOUNT_TYPE = "com.macbury.secondhalf";
-  private static final String TAG = "AccountAuthenticatorManager";
+  private static final String TAG         = "AccountAuthenticatorManager";
+  
   private Context mContext;
   
   public AccountAuthenticatorManager(Context context) {
@@ -63,7 +64,7 @@ public class AccountAuthenticatorManager extends AbstractAccountAuthenticator {
     AccountManager am = AccountManager.get(mContext);
     String username = account.name;
     String password = am.getPassword(account);
-    Log.d("Auth5000", password);
+    //Log.d(TAG, "Password: " + password);
     
     result.putString(AccountManager.KEY_AUTHTOKEN, "ABCD");
     result.putString(AccountManager.KEY_ACCOUNT_NAME, username);
