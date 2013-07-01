@@ -2,9 +2,11 @@ package com.macbury.secondhalf.activity;
 
 import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.R;
+import com.macbury.secondhalf.service.P2PNetworkService;
 
 import android.os.Bundle;
 import android.app.Activity;
+import android.content.Intent;
 import android.view.Menu;
 
 public class MainActivity extends Activity {
@@ -25,8 +27,7 @@ public class MainActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
+    startService(new Intent(this, P2PNetworkService.class));
     App.shared().getAccountManager().authUnlessLoggedIn(this);
   }
-
-  
 }

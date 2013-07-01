@@ -13,6 +13,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Signature;
+import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
@@ -42,6 +44,7 @@ public class EncryptionManager {
   
   private PublicKey publicKey   = null;
   private PrivateKey privateKey = null;
+  private Signature signature   = null;
   private Context mContext;
   private Peer peer;
   
@@ -66,6 +69,7 @@ public class EncryptionManager {
     
     try {
       KeyFactory keyFactory    = KeyFactory.getInstance(ENCRYPTION_ALGORITHM);
+      signature                = Signature.getInstance("SHA1withRSA");
       byte[] encodedPublicKey  = loadKey(PUBLIC_KEY_NAME);
       byte[] encodedPrivateKey = loadKey(PRIVATE_KEY_NAME);
       
@@ -74,6 +78,7 @@ public class EncryptionManager {
       
       publicKey                          = keyFactory.generatePublic(publicKeySpec);
       privateKey                         = keyFactory.generatePrivate(privateKeySpec);
+      
       //dumpKeyPair(publicKey, privateKey);
     } catch (InvalidKeySpecException e) {
       throw new RuntimeException(e);
@@ -106,10 +111,21 @@ public class EncryptionManager {
     try {
       cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
       cipher.init(Cipher.DECRYPT_MODE, privateKey);
-      byte[] cipherData = cipher.doFinal(shard.getContentBytes());
-      Input input = new Input(cipherData);
-      Class klass = kryo.readClass(input).getType();
-      return kryo.readObject(input, klass);
+      byte[] objectBytes = shard.getContentBytes();
+      byte[] cipherData  = blockCipher(objectBytes, Cipher.DECRYPT_MODE, cipher);
+      
+      Log.v(TAG, "Before decryption size: " + objectBytes.length + " after size: " + cipherData.length);
+      
+      signature.initVerify(publicKey);
+      signature.update(cipherData);
+      
+      if (signature.verify(shard.getSignatureBytes())) {
+        Input input = new Input(cipherData);
+        Class klass = kryo.readClass(input).getType();
+        return kryo.readObject(input, klass);
+      } else {
+        return null;
+      }
     } catch (NoSuchAlgorithmException e) {
       throw new RuntimeException(e);
     } catch (NoSuchPaddingException e) {
@@ -120,23 +136,88 @@ public class EncryptionManager {
       throw new RuntimeException(e);
     } catch (BadPaddingException e) {
       throw new RuntimeException(e);
+    } catch (SignatureException e) {
+      throw new RuntimeException(e);
     }
+  }
+  
+  private byte[] blockCipher(byte[] sourceBytes, int mode, Cipher cipher) throws IllegalBlockSizeException, BadPaddingException {
+    int length        = (mode == Cipher.ENCRYPT_MODE) ? 100 : 128;
+    int totalSize     = sourceBytes.length;
+    byte[] finalBytes = new byte[0];
+    byte[] tempBytes  = new byte[0];
+    byte[] buffer     = new byte[length];
+    
+    int offset = 0;
+    for (int i=0; i< sourceBytes.length; i++){
+      if (i > 0 && (i % length == 0)) {
+        tempBytes  = cipher.doFinal(buffer);
+        finalBytes = append(finalBytes,tempBytes);
+        
+        offset     += length;
+        int newlength = length;
+        
+        if (i + length > sourceBytes.length - 1) {
+          newlength = sourceBytes.length - 1;
+        }
+        
+        buffer     = new byte[newlength];
+      }
+      
+      buffer[i%length] = sourceBytes[i];
+    }
+    
+    int leftBytes = totalSize - offset;
+    if (leftBytes > 0) {
+      buffer        = new byte[leftBytes];
+      
+      int i = 0;
+      for (int j = sourceBytes.length - leftBytes; j < sourceBytes.length; j++) {
+        buffer[i] = sourceBytes[j];
+        i++;
+      }
+      
+      tempBytes  = cipher.doFinal(buffer);
+      finalBytes = append(finalBytes, tempBytes);
+    }
+    
+    return finalBytes;
+  }
+  
+  private byte[] append(byte[] prefix, byte[] suffix){
+    byte[] toReturn = new byte[prefix.length + suffix.length];
+    for (int i=0; i< prefix.length; i++){
+      toReturn[i] = prefix[i];
+    }
+    for (int i=0; i< suffix.length; i++){
+      toReturn[i+prefix.length] = suffix[i];
+    }
+    return toReturn;
   }
   
   public Shard encrypt(KryoSerializable object) {
     Kryo kryo     = new KryoManager();
-    Output output = new Output(4096);
+    Output output = new Output(Shard.BUFFER_SIZE);
     kryo.writeClass(output, object.getClass());
     kryo.writeObject(output, object);
+    byte[] objectBytes = output.toBytes();
     
     Cipher cipher;
     try {
+      signature.initSign(privateKey);
+      signature.update(objectBytes);
+      byte[] signatureBytes = signature.sign();
+      
       cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
       cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-      byte[] cipherData = cipher.doFinal(output.toBytes());
+
+      byte[] cipherData = blockCipher(objectBytes, Cipher.ENCRYPT_MODE, cipher);
+      
+      Log.v(TAG, "Before encryption size: " + objectBytes.length + " after size: " + cipherData.length);
       
       Shard shard = new Shard();
       shard.setContentBytes(cipherData);
+      shard.setSignatureBytes(signatureBytes);
       return shard;
     } catch (NoSuchAlgorithmException e) {
       throw new RuntimeException(e);
@@ -147,6 +228,8 @@ public class EncryptionManager {
     } catch (IllegalBlockSizeException e) {
       throw new RuntimeException(e);
     } catch (BadPaddingException e) {
+      throw new RuntimeException(e);
+    } catch (SignatureException e) {
       throw new RuntimeException(e);
     }
   }
