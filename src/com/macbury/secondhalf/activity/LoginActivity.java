@@ -1,11 +1,18 @@
 package com.macbury.secondhalf.activity;
 
+import org.json.JSONObject;
+
+import com.androidquery.AQuery;
+import com.androidquery.callback.AjaxCallback;
+import com.androidquery.callback.AjaxStatus;
 import com.macbury.secondhalf.R;
 import com.macbury.secondhalf.R.id;
 import com.macbury.secondhalf.R.layout;
 import com.macbury.secondhalf.R.menu;
 import com.macbury.secondhalf.R.string;
 import com.macbury.secondhalf.manager.AccountAuthenticatorManager;
+import com.macbury.secondhalf.manager.ApiManager;
+import com.macbury.secondhalf.manager.EncryptionManager;
 import com.macbury.secondhalf.manager.MyAccountManager;
 
 import android.accounts.Account;
@@ -32,23 +39,23 @@ public class LoginActivity extends AccountAuthenticatorActivity {
   public static final String EXTRA_AUTH_TOKEN_TYPE          = "EXTRA_AUTH_TOKEN_TYPE";
   public static final String EXTRA_RETURN_TO_MAIN_ACTIVITY  = "EXTRA_RETURN_TO_MAIN_ACTIVITY";
 
-  private UserLoginTask mAuthTask = null;
-
   private String mEmail;
   private String mPassword;
 
   private boolean startedFromMainActivity = false;
   
+  private boolean working = false;
   private EditText mEmailView;
   private EditText mPasswordView;
   private View mLoginFormView;
   private View mLoginStatusView;
   private TextView mLoginStatusMessageView;
+  private AQuery query;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-
+    query = new AQuery(this);
     setContentView(R.layout.activity_login);
 
     mEmail          = getIntent().getStringExtra(EXTRA_EMAIL);
@@ -95,10 +102,9 @@ public class LoginActivity extends AccountAuthenticatorActivity {
   }
 
   public void attemptLogin() {
-    if (mAuthTask != null) {
+    if (working) {
       return;
     }
-
     mEmailView.setError(null);
     mPasswordView.setError(null);
 
@@ -139,38 +145,42 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         accountType = AccountAuthenticatorManager.ACCOUNT_TYPE;
       }
       
-      AccountManager accMgr = AccountManager.get(this);
-      Account account = new Account(mEmail, accountType);
-      accMgr.addAccountExplicitly(account, mPassword, null);
-      Intent intent = new Intent();
-      intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, mEmail);
-      intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
-      intent.putExtra(AccountManager.KEY_AUTHTOKEN, accountType); 
-      intent.putExtra(MyAccountManager.KEY_PASSWORD, mPassword); 
-      //this.setAccountAuthenticatorResult(intent.getExtras());mPassword
-      this.setAccountAuthenticatorResult(intent.getExtras());
-      this.setResult(RESULT_OK, intent);
-      if (startedFromMainActivity) {
-        Intent mainIntent = new Intent(this, MainActivity.class);
-        mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_TASK_ON_HOME | Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(mainIntent);
-      } else {
-        finish();
-      }
-      
-      //mAuthTask = new UserLoginTask();
-      //mAuthTask.execute((Void) null);
+      showProgress(true);
+      EncryptionManager eManager = new EncryptionManager(this);
+      working = true;
+      query.ajax(ApiManager.login(mEmail, mPassword, eManager).handler(this, "onLoginRequestCallback").timeout(10000));
     }
   }
-
-  /**
-   * Shows the progress UI and hides the login form.
-   */
+  
+  public void onLoginRequestCallback(String url, JSONObject json, AjaxStatus status){
+    working = false;
+    showProgress(false);
+    
+    //mPasswordView.setError(getString(R.string.error_incorrect_password));
+   // mPasswordView.requestFocus();
+    
+    /*AccountManager accMgr = AccountManager.get(this);
+    Account account = new Account(mEmail, accountType);
+    accMgr.addAccountExplicitly(account, mPassword, null);
+    Intent intent = new Intent();
+    intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, mEmail);
+    intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
+    intent.putExtra(AccountManager.KEY_AUTHTOKEN, accountType); 
+    intent.putExtra(MyAccountManager.KEY_PASSWORD, mPassword); 
+    //this.setAccountAuthenticatorResult(intent.getExtras());mPassword
+    this.setAccountAuthenticatorResult(intent.getExtras());
+    this.setResult(RESULT_OK, intent);
+    if (startedFromMainActivity) {
+      Intent mainIntent = new Intent(this, MainActivity.class);
+      mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_TASK_ON_HOME | Intent.FLAG_ACTIVITY_NEW_TASK);
+      startActivity(mainIntent);
+    } else {
+      finish();
+    }*/
+  }
+  
   @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
   private void showProgress(final boolean show) {
-    // On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
-    // for very easy animations. If available, use these APIs to fade-in
-    // the progress spinner.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
       int shortAnimTime = getResources().getInteger(
           android.R.integer.config_shortAnimTime);
@@ -193,60 +203,9 @@ public class LoginActivity extends AccountAuthenticatorActivity {
             }
           });
     } else {
-      // The ViewPropertyAnimator APIs are not available, so simply show
-      // and hide the relevant UI components.
       mLoginStatusView.setVisibility(show ? View.VISIBLE : View.GONE);
       mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
     }
   }
 
-  /**
-   * Represents an asynchronous login/registration task used to authenticate the
-   * user.
-   */
-  public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
-    @Override
-    protected Boolean doInBackground(Void... params) {
-      // TODO: attempt authentication against a network service.
-
-      try {
-        // Simulate network access.
-        Thread.sleep(2000);
-      } catch (InterruptedException e) {
-        return false;
-      }
-
-      /*for (String credential : DUMMY_CREDENTIALS) {
-        String[] pieces = credential.split(":");
-        if (pieces[0].equals(mEmail)) {
-          // Account exists, return true if the password matches.
-          return pieces[1].equals(mPassword);
-        }
-      }*/
-
-      // TODO: register the new account here.
-      return true;
-    }
-
-    @Override
-    protected void onPostExecute(final Boolean success) {
-      mAuthTask = null;
-      showProgress(false);
-
-      if (success) {
-        
-        
-        finish();
-      } else {
-        mPasswordView.setError(getString(R.string.error_incorrect_password));
-        mPasswordView.requestFocus();
-      }
-    }
-
-    @Override
-    protected void onCancelled() {
-      mAuthTask = null;
-      showProgress(false);
-    }
-  }
 }
