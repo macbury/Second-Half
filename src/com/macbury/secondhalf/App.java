@@ -47,7 +47,7 @@ public class App extends Application {
       databaseManager.clearData();
     }
     
-    /*EncryptionManager keyManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
+    EncryptionManager keyManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
     Post post                    = new Post();
     post.setBody("Lorêm ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ornare commodo nibh, sed accumsan massa mollis sit amet. Vivamus iaculis tristique quam, sed tempus ipsum varius sed. Sed congue ac turpis sed ornare. Morbi eu rhoncus urna. Cras egestas mollis rutrum. Nunc rhoncus placerat enim vel commodo. Integer viverra diam tempor feugiat iaculis. Vivamus turpis ipsum, suscipit a imperdiet id, fermentum sed mi. Fusce dictum orci arcu, pharetra sollicitudin libero gravida a. Duis hendrerit scelerisque suscipit. Sed egestas arcu eget tortor tempus dictum id in sem. Donec sit amet adipiscing magna.");
     Shard shard = keyManager.encrypt(post);
@@ -64,7 +64,7 @@ public class App extends Application {
       Log.i(TAG, "This should not happen!");
     }
     
-    Log.i(TAG, "Base64 pubKey: "+ keyManager.getBase64PublicKey());*/
+    Log.i(TAG, "Base64 pubKey: "+ keyManager.getBase64EncryptionPublicKey());
     
   }
   

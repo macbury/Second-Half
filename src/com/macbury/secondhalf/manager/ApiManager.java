@@ -38,8 +38,8 @@ public class ApiManager {
     params.put("login", login);
     params.put("password", password);
     params.put("device", deviceUID);
-    params.put("public_key", eManager.getBase64PublicKey());
-    
+    params.put("encryption_public_key", eManager.getBase64EncryptionPublicKey());
+    params.put("signing_public_key", eManager.getBase64SigningPublicKey());
     ajax.params(params);
     return ajax;
   }
@@ -63,7 +63,7 @@ public class ApiManager {
     StringBuffer sb = new StringBuffer();
     String hex=null;
       
-    hex=Base64.encodeToString(data, 0, data.length, Base64.DEFAULT);
+    hex=Base64.encodeToString(data, 0, data.length, Base64.NO_WRAP);
       
     sb.append(hex);
                   

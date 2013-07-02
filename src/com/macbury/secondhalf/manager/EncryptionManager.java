@@ -36,14 +36,18 @@ import android.util.Base64;
 import android.util.Log;
 
 public class EncryptionManager {
-  private static final String TAG                  = "EncryptionManager";
-  private static final String PUBLIC_KEY_NAME      = "id_rsa.pub";
-  private static final String PRIVATE_KEY_NAME     = "id_rsa.priv";
-  private static final int RSA_KEY_SIZE            = 1024;
-  private static final String ENCRYPTION_ALGORITHM = "RSA";
+  private static final String TAG                             = "EncryptionManager";
+  private static final String ENCRYPTION_PUBLIC_KEY_NAME      = "encryption.pub";
+  private static final String ENCRYPTION_PRIVATE_KEY_NAME     = "encryption.priv";
+  private static final String SIGNING_PUBLIC_KEY_NAME         = "signing.pub";
+  private static final String SIGNING_PRIVATE_KEY_NAME        = "signing.priv";
+  private static final int RSA_KEY_SIZE                       = 1024;
+  private static final String ENCRYPTION_ALGORITHM            = "RSA";
   
-  private PublicKey publicKey   = null;
-  private PrivateKey privateKey = null;
+  private PublicKey encryptionPublicKey   = null;
+  private PrivateKey encryptionPrivateKey = null;
+  private PublicKey signingPublicKey      = null;
+  private PrivateKey signingPrivateKey    = null;
   private Signature signature   = null;
   private Context mContext;
   private Peer peer;
@@ -53,10 +57,10 @@ public class EncryptionManager {
     this.peer     = peer;
     try {
       KeyFactory keyFactory              = KeyFactory.getInstance(ENCRYPTION_ALGORITHM);
-      byte[] encodedPublicKey            = peer.getPublicKey();
+      byte[] encodedPublicKey            = peer.getEncryptionKey();
       X509EncodedKeySpec publicKeySpec   = new X509EncodedKeySpec(encodedPublicKey);
-      publicKey                          = keyFactory.generatePublic(publicKeySpec);
-      
+      encryptionPublicKey                = keyFactory.generatePublic(publicKeySpec);
+      throw new RuntimeException("Need reimplement this to use signing key");
     } catch (InvalidKeySpecException e) {
       throw new RuntimeException(e);
     } catch (NoSuchAlgorithmException e) {
@@ -70,16 +74,25 @@ public class EncryptionManager {
     try {
       KeyFactory keyFactory    = KeyFactory.getInstance(ENCRYPTION_ALGORITHM);
       signature                = Signature.getInstance("SHA1withRSA");
-      byte[] encodedPublicKey  = loadKey(PUBLIC_KEY_NAME);
-      byte[] encodedPrivateKey = loadKey(PRIVATE_KEY_NAME);
+      byte[] encodedPublicKey  = loadKey(ENCRYPTION_PUBLIC_KEY_NAME);
+      byte[] encodedPrivateKey = loadKey(ENCRYPTION_PRIVATE_KEY_NAME);
       
       X509EncodedKeySpec publicKeySpec   = new X509EncodedKeySpec(encodedPublicKey);
       PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(encodedPrivateKey);
       
-      publicKey                          = keyFactory.generatePublic(publicKeySpec);
-      privateKey                         = keyFactory.generatePrivate(privateKeySpec);
+      encryptionPublicKey                = keyFactory.generatePublic(publicKeySpec);
+      encryptionPrivateKey               = keyFactory.generatePrivate(privateKeySpec);
       
-      //dumpKeyPair(publicKey, privateKey);
+      encodedPublicKey                   = loadKey(SIGNING_PUBLIC_KEY_NAME);
+      encodedPrivateKey                  = loadKey(SIGNING_PRIVATE_KEY_NAME);
+      
+      publicKeySpec                      = new X509EncodedKeySpec(encodedPublicKey);
+      privateKeySpec                     = new PKCS8EncodedKeySpec(encodedPrivateKey);
+      
+      signingPublicKey                   = keyFactory.generatePublic(publicKeySpec);
+      signingPrivateKey                  = keyFactory.generatePrivate(privateKeySpec);
+      
+      //dumpKeyPair(encryptionPublicKey, encryptionPrivateKey);
     } catch (InvalidKeySpecException e) {
       throw new RuntimeException(e);
     } catch (NoSuchAlgorithmException e) {
@@ -110,13 +123,13 @@ public class EncryptionManager {
     Cipher cipher;
     try {
       cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
-      cipher.init(Cipher.DECRYPT_MODE, privateKey);
+      cipher.init(Cipher.DECRYPT_MODE, encryptionPrivateKey);
       byte[] objectBytes = shard.getContentBytes();
       byte[] cipherData  = blockCipher(objectBytes, Cipher.DECRYPT_MODE, cipher);
       
       Log.v(TAG, "Before decryption size: " + objectBytes.length + " after size: " + cipherData.length);
       
-      signature.initVerify(publicKey);
+      signature.initVerify(signingPublicKey);
       signature.update(cipherData);
       
       if (signature.verify(shard.getSignatureBytes())) {
@@ -204,12 +217,12 @@ public class EncryptionManager {
     
     Cipher cipher;
     try {
-      signature.initSign(privateKey);
+      signature.initSign(signingPrivateKey);
       signature.update(objectBytes);
       byte[] signatureBytes = signature.sign();
       
       cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
-      cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+      cipher.init(Cipher.ENCRYPT_MODE, encryptionPublicKey);
 
       byte[] cipherData = blockCipher(objectBytes, Cipher.ENCRYPT_MODE, cipher);
       
@@ -273,8 +286,12 @@ public class EncryptionManager {
       keyGen.initialize(RSA_KEY_SIZE, random);
       KeyPair pair            = keyGen.generateKeyPair();
       //dumpKeyPair(pair.getPublic(), pair.getPrivate());
-      saveX509Key(context, PUBLIC_KEY_NAME, pair.getPublic().getEncoded());
-      savePKCS8Key(context, PRIVATE_KEY_NAME, pair.getPrivate().getEncoded());
+      saveX509Key(context, ENCRYPTION_PUBLIC_KEY_NAME, pair.getPublic().getEncoded());
+      savePKCS8Key(context, ENCRYPTION_PRIVATE_KEY_NAME, pair.getPrivate().getEncoded());
+      
+      pair                   = keyGen.generateKeyPair();
+      saveX509Key(context, SIGNING_PUBLIC_KEY_NAME, pair.getPublic().getEncoded());
+      savePKCS8Key(context, SIGNING_PRIVATE_KEY_NAME, pair.getPrivate().getEncoded());
       return new EncryptionManager(context);
     } catch (NoSuchAlgorithmException e) {
       throw new RuntimeException(e);
@@ -299,8 +316,16 @@ public class EncryptionManager {
     return result;
   }
   
-  public String getBase64PublicKey() {
-    X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(publicKey.getEncoded());
-    return Base64.encodeToString(x509EncodedKeySpec.getEncoded(), Base64.DEFAULT);
+  public String keyToBase64(PublicKey key) {
+    X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(key.getEncoded());
+    return Base64.encodeToString(x509EncodedKeySpec.getEncoded(), Base64.NO_WRAP);
+  }
+  
+  public String getBase64EncryptionPublicKey() {
+    return keyToBase64(encryptionPublicKey);
+  }
+  
+  public String getBase64SigningPublicKey() {
+    return keyToBase64(signingPublicKey);
   }
 }

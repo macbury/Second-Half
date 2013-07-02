@@ -14,7 +14,9 @@ public class Peer {
   @DatabaseField(canBeNull = false)
   private boolean current   = false;
   @DatabaseField(canBeNull = false, dataType=DataType.BYTE_ARRAY)
-  private byte[] publicKey;
+  private byte[] encryptionKey;
+  @DatabaseField(canBeNull = false, dataType=DataType.BYTE_ARRAY)
+  private byte[] signingKey;
   @DatabaseField(canBeNull = false)
   private String name;
   @DatabaseField(canBeNull = false)
@@ -43,12 +45,6 @@ public class Peer {
   public void setCurrent(boolean current) {
     this.current = current;
   }
-  public byte[] getPublicKey() {
-    return publicKey;
-  }
-  public void setPublicKey(byte[] publicKey) {
-    this.publicKey = publicKey;
-  }
   public String getName() {
     return name;
   }
@@ -66,5 +62,17 @@ public class Peer {
   }
   public void setUser(User user) {
     this.user = user;
+  }
+  public byte[] getEncryptionKey() {
+    return encryptionKey;
+  }
+  public void setEncryptionKey(byte[] encryptionKey) {
+    this.encryptionKey = encryptionKey;
+  }
+  public byte[] getSigningKey() {
+    return signingKey;
+  }
+  public void setSigningKey(byte[] signingKey) {
+    this.signingKey = signingKey;
   }
 }
