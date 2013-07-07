@@ -66,7 +66,7 @@ public class AccountAuthenticatorManager extends AbstractAccountAuthenticator {
     String password = am.getPassword(account);
     //Log.d(TAG, "Password: " + password);
     
-    result.putString(AccountManager.KEY_AUTHTOKEN, "ABCD");
+    result.putString(AccountManager.KEY_AUTHTOKEN, password);
     result.putString(AccountManager.KEY_ACCOUNT_NAME, username);
     result.putString(AccountManager.KEY_ACCOUNT_TYPE, authTokenType);
     

@@ -2,6 +2,7 @@ package com.macbury.secondhalf.p2p;
 
 public class Response extends Node {
   public static final String TAG = "response";
+  public static final String IN_RELATIONSHIP_ATTR = "in-relationship";
   private String forType;
   private String status;
   
@@ -31,5 +32,9 @@ public class Response extends Node {
   
   public boolean isInvalidPassword() {
     return "INVALID_PASSWORD_ERROR".equals(status);
+  }
+
+  public boolean isResponseForAction(Action tokenAuthAction) {
+    return (tokenAuthAction.getId().equals(this.getId()) && tokenAuthAction.getType().equals(this.getForType()));
   }
 }

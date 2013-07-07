@@ -5,6 +5,7 @@ import org.json.JSONObject;
 import com.androidquery.AQuery;
 import com.androidquery.callback.AjaxCallback;
 import com.androidquery.callback.AjaxStatus;
+import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.R;
 import com.macbury.secondhalf.R.id;
 import com.macbury.secondhalf.R.layout;
@@ -26,6 +27,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -36,6 +38,7 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -149,56 +152,16 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     if (cancel) {
       focusView.requestFocus();
     } else {
+      InputMethodManager in = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+      in.hideSoftInputFromWindow(mPasswordView.getApplicationWindowToken(),InputMethodManager.HIDE_NOT_ALWAYS);
+      
       mLoginStatusMessageView.setText(R.string.login_progress_signing_in);
       showProgress(true);
-      
-      String accountType = this.getIntent().getStringExtra(EXTRA_AUTH_TOKEN_TYPE);
-      if (accountType == null) {
-        accountType = AccountAuthenticatorManager.ACCOUNT_TYPE;
-      }
-      
       working = true;
-      showProgress(true);
       client.connect();
-      
-      EncryptionManager eManager = new EncryptionManager(this);
-      loginAction = Action.buildActionForRegisterOrLogin(
-        mEmail, 
-        mPassword, 
-        EncryptionManager.getDeviceUID(), 
-        eManager.getBase64SigningPublicKey(), 
-        eManager.getBase64EncryptionPublicKey()
-      );
     }
   }
-  
-  public void onLoginRequestCallback(String url, JSONObject json, AjaxStatus status){
-    working = false;
-    showProgress(false);
-    //client.connect();
-    
-    //mPasswordView.setError(getString(R.string.error_incorrect_password));
-   // mPasswordView.requestFocus();
-    
-    /*AccountManager accMgr = AccountManager.get(this);
-    Account account = new Account(mEmail, accountType);
-    accMgr.addAccountExplicitly(account, mPassword, null);
-    Intent intent = new Intent();
-    intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, mEmail);
-    intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
-    intent.putExtra(AccountManager.KEY_AUTHTOKEN, accountType); 
-    intent.putExtra(MyAccountManager.KEY_PASSWORD, mPassword); 
-    //this.setAccountAuthenticatorResult(intent.getExtras());mPassword
-    this.setAccountAuthenticatorResult(intent.getExtras());
-    this.setResult(RESULT_OK, intent);
-    if (startedFromMainActivity) {
-      Intent mainIntent = new Intent(this, MainActivity.class);
-      mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_TASK_ON_HOME | Intent.FLAG_ACTIVITY_NEW_TASK);
-      startActivity(mainIntent);
-    } else {
-      finish();
-    }*/
-  }
+
   
   @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
   private void showProgress(final boolean show) {
@@ -232,9 +195,15 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
   @Override
   public void onResponse(final Response response) {
     if (loginAction.getId().equals(response.getId())) {
+      client.disconnect();
       if (response.isSuccess()) {
-        String token = response.getParam("token"); 
-        Log.i(TAG, token);
+        final String token = response.getParam("token"); 
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            finishWithToken(token);
+          }
+        });
       } else {
         client.disconnect();
         runOnUiThread(new Runnable() {
@@ -243,15 +212,50 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
             showProgress(false);
             mPasswordView.setError(response.getParam("error"));
             mPasswordView.requestFocus();
+            
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED,0);
           }
         });
       }
     }
   }
 
+  protected void finishWithToken(String token) {
+    String accountType = this.getIntent().getStringExtra(EXTRA_AUTH_TOKEN_TYPE);
+    if (accountType == null) {
+      accountType = AccountAuthenticatorManager.ACCOUNT_TYPE;
+    }
+    AccountManager accMgr = AccountManager.get(this);
+    Account account       = new Account(mEmail, accountType);
+    Intent intent         = new Intent();
+    
+    accMgr.addAccountExplicitly(account, token, null);
+    intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, mEmailView.getText().toString());
+    intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
+    intent.putExtra(AccountManager.KEY_AUTHTOKEN,    token); 
+    
+    this.setAccountAuthenticatorResult(intent.getExtras());
+    this.setResult(RESULT_OK, intent);
+    
+    if (startedFromMainActivity) {
+      Intent mainIntent = new Intent(this, MainActivity.class);
+      mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_TASK_ON_HOME | Intent.FLAG_ACTIVITY_NEW_TASK);
+      startActivity(mainIntent);
+    } else {
+      finish();
+    }
+  }
+
   @Override
   public void onAction(Action action) {
     
+  }
+
+  @Override
+  protected void onStop() {
+    client.disconnect();
+    super.onStop();
   }
 
   @Override
@@ -267,6 +271,14 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
 
   @Override
   public void onConnect() {
+    EncryptionManager eManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
+    loginAction = Action.buildActionForRegisterOrLogin(
+      mEmail, 
+      mPassword, 
+      EncryptionManager.getDeviceUID(), 
+      eManager.getBase64SigningPublicKey(), 
+      eManager.getBase64EncryptionPublicKey()
+    );
     client.send(loginAction);
   }
 

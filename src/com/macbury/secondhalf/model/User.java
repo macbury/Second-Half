@@ -19,4 +19,44 @@ public class User{
   @ForeignCollectionField(eager=true)
   private ForeignCollection<Peer> peers;
 
+  public int getId() {
+    return id;
+  }
+
+  public void setId(int id) {
+    this.id = id;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+
+  public String getToken() {
+    return token;
+  }
+
+  public void setToken(String token) {
+    this.token = token;
+  }
+
+  public String getVersionToken() {
+    return versionToken;
+  }
+
+  public void setVersionToken(String versionToken) {
+    this.versionToken = versionToken;
+  }
+
+  public ForeignCollection<Peer> getPeers() {
+    return peers;
+  }
+
+  public void setPeers(ForeignCollection<Peer> peers) {
+    this.peers = peers;
+  }
+
 }

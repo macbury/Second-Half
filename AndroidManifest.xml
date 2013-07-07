@@ -38,6 +38,7 @@
             android:name="com.macbury.secondhalf.activity.LoginActivity"
             android:label="@string/title_activity_login"
             android:configChanges="keyboardHidden|orientation"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize|stateVisible" >
         </activity>
         <service android:name=".service.P2PNetworkService"></service>

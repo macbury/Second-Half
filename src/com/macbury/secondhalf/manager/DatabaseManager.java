@@ -73,6 +73,14 @@ public class DatabaseManager extends OrmLiteSqliteOpenHelper {
     return userDao;
   }
 
+  public void saveUser(User user) {
+    try {
+      getUserDao().createOrUpdate(user);
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+  }
+  
   public void clearData() {
     Log.i(TAG, "Clearing database!");
     try {
@@ -82,5 +90,10 @@ public class DatabaseManager extends OrmLiteSqliteOpenHelper {
       Log.e(TAG, "Can't clear databases", e);
       throw new RuntimeException(e);
     }
+  }
+
+  public User findUserOrInitializeByName(String name) {
+    
+    return null;
   } 
 }

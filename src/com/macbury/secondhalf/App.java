@@ -8,12 +8,13 @@ import android.util.Log;
 import com.macbury.secondhalf.manager.EncryptionManager;
 import com.macbury.secondhalf.manager.DatabaseManager;
 import com.macbury.secondhalf.manager.MyAccountManager;
+import com.macbury.secondhalf.manager.MyAccountManager.TokenCallback;
 import com.macbury.secondhalf.model.Post;
 import com.macbury.secondhalf.p2p.Shard;
 import com.macbury.secondhalf.p2p.ShardClient;
 import com.macbury.secondhalf.service.P2PNetworkService;
 
-public class App extends Application {
+public class App extends Application implements TokenCallback {
   public static final String API_VERSION = "0.0.1";
   private static final String TAG = "App";
   private static App _shared;
@@ -41,14 +42,12 @@ public class App extends Application {
     super.onCreate();
     Log.i(TAG, "App starting");
     Context context = getApplicationContext();
-    accountManger   = new MyAccountManager(context);
+    accountManger   = new MyAccountManager(context, this);
     databaseManager = new DatabaseManager(context);
     
     if(!accountManger.haveConnectedAccount()) {
       databaseManager.clearData();
     }
-    
-    
     
    /* EncryptionManager keyManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
     Post post                    = new Post();
@@ -70,6 +69,12 @@ public class App extends Application {
     Log.i(TAG, "Base64 pubKey: "+ keyManager.getBase64EncryptionPublicKey());*/
     
   }
-  
+
+  @Override
+  public void onAuthComplete() {
+    if(accountManger.haveConnectedAccount()) {
+      startService(new Intent(this, P2PNetworkService.class));
+    }
+  }
   
 }

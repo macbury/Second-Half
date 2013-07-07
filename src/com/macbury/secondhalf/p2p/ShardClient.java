@@ -66,7 +66,12 @@ public class ShardClient extends DefaultHandler implements Runnable {
   
   public void disconnect() {
     mRun = false;
-    send("</session>");
+    try {
+      send("</session>");
+      socket.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
   
   @Override

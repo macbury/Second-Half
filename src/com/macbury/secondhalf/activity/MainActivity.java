@@ -31,6 +31,6 @@ public class MainActivity extends Activity {
   }
   
   public void onConnectClick(View view) {
-    //startService(new Intent(this, P2PNetworkService.class));
+    startService(new Intent(this, P2PNetworkService.class));
   }
 }

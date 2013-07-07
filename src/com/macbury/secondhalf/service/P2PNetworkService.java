@@ -1,5 +1,7 @@
 package com.macbury.secondhalf.service;
 
+import com.macbury.secondhalf.App;
+import com.macbury.secondhalf.model.User;
 import com.macbury.secondhalf.p2p.Action;
 import com.macbury.secondhalf.p2p.NodeTransformer;
 import com.macbury.secondhalf.p2p.Response;
@@ -15,8 +17,8 @@ import android.util.Log;
 
 public class P2PNetworkService extends Service implements ShardClientInterface {
   private static final String TAG   = "P2PNetworkService";
-
   private ShardClient client;
+  private Action tokenAuthAction;
   
   @Override
   public void onCreate() {
@@ -24,6 +26,10 @@ public class P2PNetworkService extends Service implements ShardClientInterface {
     super.onCreate();
     client = new ShardClient(getApplicationContext());
     client.setDelegate(this);
+    
+    String token    = App.shared().getAccountManager().getAuthToken();
+    tokenAuthAction = Action.buildAuthAction(token);
+    
     client.connect();
   }
   
@@ -50,13 +56,18 @@ public class P2PNetworkService extends Service implements ShardClientInterface {
 
   @Override
   public void onConnect() {
-    Action action = new Action();
-    action.setType("auth");
-    client.send(action);
+    client.send(tokenAuthAction);
   }
 
   @Override
   public void onResponse(Response response) {
-    
+    if (response.isResponseForAction(tokenAuthAction)) {
+      if (response.isSuccess()) {
+        User user = App.shared().getDatabaseManager().findUserOrInitializeByName(response.getParam("email"));
+        user.setToken(response.getParam("token"));
+        
+        App.shared().getDatabaseManager().saveUser(user);
+      }
+    }
   }
 }

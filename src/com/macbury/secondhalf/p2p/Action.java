@@ -3,6 +3,8 @@ package com.macbury.secondhalf.p2p;
 import java.util.HashMap;
 import java.util.UUID;
 
+import com.macbury.secondhalf.App;
+
 
 public class Action extends Node {
   static final String ACTION_TAG  = "action";
@@ -29,6 +31,13 @@ public class Action extends Node {
     action.addParam("device", device);
     action.addParam("signing-key", signingKey);
     action.addParam("encryption-key", encryptionKey);
+    return action;
+  }
+
+  public static Action buildAuthAction(String token) {
+    Action action = new Action();
+    action.setType("auth");
+    action.addParam("token", token);
     return action;
   }
 
