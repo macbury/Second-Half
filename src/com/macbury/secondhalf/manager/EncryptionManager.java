@@ -5,10 +5,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -24,14 +26,15 @@ import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.KryoSerializable;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
+import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.model.Peer;
 import com.macbury.secondhalf.p2p.Shard;
 
 import android.content.Context;
+import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.provider.Settings.Secure;
+import android.telephony.TelephonyManager;
 import android.util.Base64;
 import android.util.Log;
 
@@ -118,7 +121,8 @@ public class EncryptionManager {
   }
   
   public Object decrypt(Shard shard) {
-    Kryo kryo     = new KryoManager();
+    return shard;
+    /*Kryo kryo     = new KryoManager();
     
     Cipher cipher;
     try {
@@ -151,7 +155,7 @@ public class EncryptionManager {
       throw new RuntimeException(e);
     } catch (SignatureException e) {
       throw new RuntimeException(e);
-    }
+    }*/
   }
   
   private byte[] blockCipher(byte[] sourceBytes, int mode, Cipher cipher) throws IllegalBlockSizeException, BadPaddingException {
@@ -208,7 +212,7 @@ public class EncryptionManager {
     return toReturn;
   }
   
-  public Shard encrypt(KryoSerializable object) {
+  /*public Shard encrypt(KryoSerializable object) {
     Kryo kryo     = new KryoManager();
     Output output = new Output(Shard.BUFFER_SIZE);
     kryo.writeClass(output, object.getClass());
@@ -245,7 +249,7 @@ public class EncryptionManager {
     } catch (SignatureException e) {
       throw new RuntimeException(e);
     }
-  }
+  }*/
   
   public static void saveX509Key(Context context, String filename, byte[] keyContent) {
     File file = new File(context.getFilesDir(), filename);
@@ -327,5 +331,54 @@ public class EncryptionManager {
   
   public String getBase64SigningPublicKey() {
     return keyToBase64(signingPublicKey);
+  }
+  
+  public static String getDeviceUID() {
+    TelephonyManager telephonyManager  = (TelephonyManager)App.shared().getSystemService( Context.TELEPHONY_SERVICE );
+    WifiManager wm                     = (WifiManager)App.shared().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+    String androidID                   = Secure.getString(App.shared().getContentResolver(), Secure.ANDROID_ID);
+    String m_szDevIDShort = "666" + 
+        Build.BOARD.length()+ Build.BRAND.length() + 
+        Build.CPU_ABI.length() + Build.DEVICE.length() + 
+        Build.DISPLAY.length() + Build.HOST.length() + 
+        Build.ID.length() + Build.MANUFACTURER.length() + 
+        Build.MODEL.length() + Build.PRODUCT.length() + 
+        Build.TAGS.length() + Build.TYPE.length() + 
+        Build.USER.length() ; 
+    return computeSHAHash(wm.getConnectionInfo().getMacAddress() + "-" +m_szDevIDShort + "-" + androidID + "-"+telephonyManager.getDeviceId() + "-" + telephonyManager.getSubscriberId());
+  }
+  
+  private static String convertToHex(byte[] data) throws java.io.IOException {
+    StringBuffer sb = new StringBuffer();
+    String hex=null;
+      
+    hex=Base64.encodeToString(data, 0, data.length, Base64.NO_WRAP);
+      
+    sb.append(hex);
+                  
+    return sb.toString();
+  }
+  
+  public static String  computeSHAHash(String password) {
+    MessageDigest mdSha1 = null;
+    try {
+      mdSha1 = MessageDigest.getInstance("SHA-1");
+    } catch (NoSuchAlgorithmException e1) {
+      Log.e(TAG, "Error initializing SHA1 message digest");
+    }
+    try {
+      mdSha1.update(password.getBytes("ASCII"));
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+    byte[] data = mdSha1.digest();
+    String SHAHash = null;
+    try {
+      SHAHash=convertToHex(data);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+       
+    return SHAHash;
   }
 }

@@ -2,15 +2,10 @@ package com.macbury.secondhalf.p2p;
 
 import android.util.Base64;
 
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.KryoSerializable;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
 import com.macbury.secondhalf.App;
-import com.macbury.secondhalf.manager.KryoManager;
 import com.macbury.secondhalf.model.Peer;
 
-public class Shard implements KryoSerializable {
+public class Shard {
   public static final int BUFFER_SIZE = 4096;
   private Peer peer;
   private byte[] contentBytes;
@@ -30,23 +25,6 @@ public class Shard implements KryoSerializable {
 
   public void setContentBytes(byte[] contentBytes) {
     this.contentBytes = contentBytes;
-  }
-
-  @Override
-  public void read(Kryo kryo, Input input) {
-    int contentLength = input.read();
-    contentBytes      = input.readBytes(contentLength);
-    contentLength     = input.read();
-    signatureBytes    = input.readBytes(contentLength);
-  }
-
-  @Override
-  public void write(Kryo kryo, Output output) {
-    output.writeString(App.API_VERSION);
-    output.write(contentBytes.length);
-    output.write(contentBytes);
-    output.write(signatureBytes.length);
-    output.write(signatureBytes);
   }
   
   public byte[] getSignatureBytes() {
@@ -70,11 +48,12 @@ public class Shard implements KryoSerializable {
   }
   
   public String toBase64() {
-    KryoManager kryo = new KryoManager();
+    /*KryoManager kryo = new KryoManager();
     Output output    = new Output(Shard.BUFFER_SIZE);
     kryo.writeObject(output, this);
     byte[] objectBytes = output.toBytes();
     
-    return Base64.encodeToString(objectBytes, Base64.DEFAULT);
+    return Base64.encodeToString(objectBytes, Base64.DEFAULT);*/
+    return null;
   }
 }

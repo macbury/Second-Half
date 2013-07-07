@@ -1,6 +1,5 @@
 package com.macbury.secondhalf.model;
 
-import com.esotericsoftware.kryonet.Client;
 import com.j256.ormlite.field.DataType;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.table.DatabaseTable;
@@ -25,14 +24,7 @@ public class Peer {
   private User user;
   
   private EncryptionManager encryptionManager;
-  private Client            client;
-  
-  public Client getClient() {
-    return client;
-  }
-  public void setClient(Client client) {
-    this.client = client;
-  }
+
   public int getId() {
     return id;
   }

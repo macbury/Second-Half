@@ -14,6 +14,10 @@ import com.macbury.secondhalf.manager.AccountAuthenticatorManager;
 import com.macbury.secondhalf.manager.ApiManager;
 import com.macbury.secondhalf.manager.EncryptionManager;
 import com.macbury.secondhalf.manager.MyAccountManager;
+import com.macbury.secondhalf.p2p.Action;
+import com.macbury.secondhalf.p2p.Response;
+import com.macbury.secondhalf.p2p.ShardClient;
+import com.macbury.secondhalf.p2p.ShardClient.ShardClientInterface;
 
 import android.accounts.Account;
 import android.accounts.AccountAuthenticatorActivity;
@@ -27,6 +31,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.View;
@@ -34,10 +39,11 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 
-public class LoginActivity extends AccountAuthenticatorActivity {
+public class LoginActivity extends AccountAuthenticatorActivity implements ShardClientInterface {
   public static final String EXTRA_EMAIL                    = "EXTRA_EMAIL";
   public static final String EXTRA_AUTH_TOKEN_TYPE          = "EXTRA_AUTH_TOKEN_TYPE";
   public static final String EXTRA_RETURN_TO_MAIN_ACTIVITY  = "EXTRA_RETURN_TO_MAIN_ACTIVITY";
+  private static final String TAG                           = "LoginActivity";
 
   private String mEmail;
   private String mPassword;
@@ -51,13 +57,19 @@ public class LoginActivity extends AccountAuthenticatorActivity {
   private View mLoginStatusView;
   private TextView mLoginStatusMessageView;
   private AQuery query;
-
+  private ShardClient client;
+  private Action loginAction;
+  
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     query = new AQuery(this);
     setContentView(R.layout.activity_login);
 
+    client = new ShardClient(getApplicationContext());
+    client.setDelegate(this);
+    
+    
     mEmail          = getIntent().getStringExtra(EXTRA_EMAIL);
     mEmailView      = (EditText) findViewById(R.id.email);
     mEmailView.setText(mEmail);
@@ -145,16 +157,25 @@ public class LoginActivity extends AccountAuthenticatorActivity {
         accountType = AccountAuthenticatorManager.ACCOUNT_TYPE;
       }
       
-      showProgress(true);
-      EncryptionManager eManager = new EncryptionManager(this);
       working = true;
-      query.ajax(ApiManager.login(mEmail, mPassword, eManager).handler(this, "onLoginRequestCallback").timeout(10000));
+      showProgress(true);
+      client.connect();
+      
+      EncryptionManager eManager = new EncryptionManager(this);
+      loginAction = Action.buildActionForRegisterOrLogin(
+        mEmail, 
+        mPassword, 
+        EncryptionManager.getDeviceUID(), 
+        eManager.getBase64SigningPublicKey(), 
+        eManager.getBase64EncryptionPublicKey()
+      );
     }
   }
   
   public void onLoginRequestCallback(String url, JSONObject json, AjaxStatus status){
     working = false;
     showProgress(false);
+    //client.connect();
     
     //mPasswordView.setError(getString(R.string.error_incorrect_password));
    // mPasswordView.requestFocus();
@@ -206,6 +227,47 @@ public class LoginActivity extends AccountAuthenticatorActivity {
       mLoginStatusView.setVisibility(show ? View.VISIBLE : View.GONE);
       mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
     }
+  }
+
+  @Override
+  public void onResponse(final Response response) {
+    if (loginAction.getId().equals(response.getId())) {
+      if (response.isSuccess()) {
+        String token = response.getParam("token"); 
+        Log.i(TAG, token);
+      } else {
+        client.disconnect();
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            showProgress(false);
+            mPasswordView.setError(response.getParam("error"));
+            mPasswordView.requestFocus();
+          }
+        });
+      }
+    }
+  }
+
+  @Override
+  public void onAction(Action action) {
+    
+  }
+
+  @Override
+  public void onDisconnect() {
+    working = false;
+    runOnUiThread(new Runnable() {
+      @Override
+      public void run() {
+        showProgress(false);
+      }
+    });
+  }
+
+  @Override
+  public void onConnect() {
+    client.send(loginAction);
   }
 
 }
