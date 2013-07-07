@@ -69,6 +69,8 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     query = new AQuery(this);
     setContentView(R.layout.activity_login);
 
+    App.shared().clearData();
+    
     client = new ShardClient(getApplicationContext());
     client.setDelegate(this);
     

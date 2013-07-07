@@ -46,7 +46,7 @@ public class App extends Application implements TokenCallback {
     databaseManager = new DatabaseManager(context);
     
     if(!accountManger.haveConnectedAccount()) {
-      databaseManager.clearData();
+      clearData();
     }
     
    /* EncryptionManager keyManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
@@ -68,6 +68,11 @@ public class App extends Application implements TokenCallback {
     
     Log.i(TAG, "Base64 pubKey: "+ keyManager.getBase64EncryptionPublicKey());*/
     
+  }
+
+  public void clearData() {
+    accountManger.unRegister();
+    databaseManager.clearData();
   }
 
   @Override

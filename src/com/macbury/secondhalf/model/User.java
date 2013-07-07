@@ -11,10 +11,6 @@ public class User{
   private int    id;
   @DatabaseField(canBeNull=false)
   private String name;
-  @DatabaseField(canBeNull=false)
-  private String token;
-  @DatabaseField(canBeNull=false)
-  private String versionToken;
   
   @ForeignCollectionField(eager=true)
   private ForeignCollection<Peer> peers;
@@ -35,21 +31,6 @@ public class User{
     this.name = name;
   }
 
-  public String getToken() {
-    return token;
-  }
-
-  public void setToken(String token) {
-    this.token = token;
-  }
-
-  public String getVersionToken() {
-    return versionToken;
-  }
-
-  public void setVersionToken(String versionToken) {
-    this.versionToken = versionToken;
-  }
 
   public ForeignCollection<Peer> getPeers() {
     return peers;

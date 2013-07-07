@@ -8,6 +8,8 @@ import android.util.Log;
 
 import com.j256.ormlite.android.apptools.OrmLiteSqliteOpenHelper;
 import com.j256.ormlite.dao.Dao;
+import com.j256.ormlite.stmt.PreparedQuery;
+import com.j256.ormlite.stmt.QueryBuilder;
 import com.j256.ormlite.support.ConnectionSource;
 import com.j256.ormlite.table.TableUtils;
 import com.macbury.secondhalf.model.Peer;
@@ -15,7 +17,7 @@ import com.macbury.secondhalf.model.User;
 
 public class DatabaseManager extends OrmLiteSqliteOpenHelper {
   private static final String DATABASE_NAME   = "shards.db";
-  private static final int DATABASE_VERSION   = 6;
+  private static final int DATABASE_VERSION   = 7;
   private static final String TAG             = "DatabaseManager";
   private Dao<User, Integer> userDao          = null;
   private Dao<Peer, Integer> peerDao          = null;
@@ -93,7 +95,19 @@ public class DatabaseManager extends OrmLiteSqliteOpenHelper {
   }
 
   public User findUserOrInitializeByName(String name) {
-    
-    return null;
+    QueryBuilder<User, Integer> qb = getUserDao().queryBuilder(); 
+    try {
+      qb.where().eq("name", name);
+      PreparedQuery<User> pq = qb.prepare();
+      User user = getUserDao().queryForFirst(pq);
+      if (user == null) {
+        user = new User();
+      }
+      user.setName(name);
+      return user;
+    } catch (SQLException e) {
+      e.printStackTrace();
+      return null;
+    }
   } 
 }

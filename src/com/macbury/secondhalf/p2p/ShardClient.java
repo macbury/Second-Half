@@ -5,7 +5,9 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -30,6 +32,7 @@ public class ShardClient extends DefaultHandler implements Runnable {
   private static final String TAG         = "ShardClient";
   private static final String SESSION_TAG = "session";
   static final String WIFILOCK            = "OPTION_PERM_WIFILOCK";
+  private static final int SOCKET_TIMEOUT = 10000;
   
   private WifiManager.WifiLock wifilock;
   private Socket socket;
@@ -60,8 +63,10 @@ public class ShardClient extends DefaultHandler implements Runnable {
   
   public void send(String s) {
     Log.v(TAG, "Sending: "+ s);
-    out.println(s);
-    out.flush();
+    if (out != null) {
+      out.println(s);
+      out.flush();
+    }
   }
   
   public void disconnect() {
@@ -80,9 +85,10 @@ public class ShardClient extends DefaultHandler implements Runnable {
     
     try {
       Log.i(TAG, "Connecting: " + SERVERIP);
-      InetAddress serverAddr = InetAddress.getByName(SERVERIP);
+      SocketAddress socketAddress = new InetSocketAddress(SERVERIP, SERVERPORT);
       try {
-        this.socket = new Socket(serverAddr, SERVERPORT);
+        this.socket = new Socket();
+        this.socket.connect(socketAddress, SOCKET_TIMEOUT);
         out         = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())));
         
         SAXParserFactory saxPF  = SAXParserFactory.newInstance();

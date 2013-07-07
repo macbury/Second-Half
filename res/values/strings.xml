@@ -4,5 +4,7 @@
     <string name="app_name">SecondHalf</string>
     <string name="action_settings">Settings</string>
     <string name="hello_world">Hello world!</string>
+    <string name="notification_login_error_title">Cannot login</string>
+    <string name="notification_login_error_summary">Tap to login</string>
 
 </resources>

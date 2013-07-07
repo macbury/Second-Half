@@ -40,19 +40,31 @@ public class MyAccountManager implements AccountManagerCallback<Bundle> {
     }
   }
 
+  public void unRegister() {
+    AccountManager am = AccountManager.get(App.shared().getApplicationContext());
+    Account account   = getCurrentAccount();
+    if (account != null) {
+      am.removeAccount(account, null, null);
+    }
+  }
+  
   public void authUnlessLoggedIn(Context c) {
     Account account = getCurrentAccount();
     
     if (account == null) {
-      Intent intent = new Intent(c, LoginActivity.class);
-      intent.putExtra(LoginActivity.EXTRA_RETURN_TO_MAIN_ACTIVITY, true);
-      intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_TASK_ON_HOME | Intent.FLAG_ACTIVITY_NEW_TASK);
-      c.startActivity(intent);
+      c.startActivity(getLoginIntent());
     } else {
       requestAuthToken();
     }
   }
   
+  public Intent getLoginIntent() {
+    Intent intent = new Intent(App.shared().getApplicationContext(), LoginActivity.class);
+    intent.putExtra(LoginActivity.EXTRA_RETURN_TO_MAIN_ACTIVITY, true);
+    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_TASK_ON_HOME | Intent.FLAG_ACTIVITY_NEW_TASK);
+    return intent;
+  }
+
   public String getAuthToken() {
     return authToken;
   }
