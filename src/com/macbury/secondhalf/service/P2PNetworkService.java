@@ -2,6 +2,7 @@ package com.macbury.secondhalf.service;
 
 import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.R;
+import com.macbury.secondhalf.activity.InviteActivity;
 import com.macbury.secondhalf.manager.DatabaseManager;
 import com.macbury.secondhalf.model.User;
 import com.macbury.secondhalf.p2p.Action;
@@ -20,8 +21,9 @@ import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 public class P2PNetworkService extends Service implements ShardClientInterface {
-  private static final String TAG   = "P2PNetworkService";
-  private static final int NOTIFICATION_LOGIN_ID = 1;
+  private static final String TAG                       = "P2PNetworkService";
+  private static final int NOTIFICATION_LOGIN_ID        = 1;
+  private static final int NOTIFICATION_REGISTRAION_ID  = 2;
   private ShardClient client;
   private Action tokenAuthAction;
   
@@ -73,15 +75,32 @@ public class P2PNetworkService extends Service implements ShardClientInterface {
       if (response.isSuccess()) {
         DatabaseManager db = App.shared().getDatabaseManager();
         User user          = db.findUserOrInitializeByName(response.getParam("email"));
+        user.setInRelationShip(response.getParam(Response.IN_RELATIONSHIP_ATTR) == "true");
         db.saveUser(user);
+        showRequestInviteNotification();
       } else {
         Log.i(TAG, "Invalid token");
         showLoginNotification();
-        client.disconnect();
       }
+      
+      client.disconnect();
     }
   }
 
+  private void showRequestInviteNotification() {
+    NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
+      .setSmallIcon(R.drawable.ic_launcher)
+      .setContentTitle(getString(R.string.notification_relationship_error_title))
+      .setContentText(getString(R.string.notification_relationship_error_summary))
+      .setAutoCancel(true);
+    
+    PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this, InviteActivity.class), PendingIntent.FLAG_UPDATE_CURRENT);
+    builder.setContentIntent(pi);
+    
+    NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+    mNotificationManager.notify(NOTIFICATION_REGISTRAION_ID, builder.build());
+  }
+  
   private void showLoginNotification() {
     NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
       .setSmallIcon(R.drawable.ic_launcher)

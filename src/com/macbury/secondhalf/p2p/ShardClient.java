@@ -9,6 +9,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Stack;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -26,13 +28,13 @@ import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.util.Log;
 
-public class ShardClient extends DefaultHandler implements Runnable {
+public class ShardClient extends DefaultHandler {
   public static final String SERVERIP     = "5.35.245.219";
   public static final int SERVERPORT      = 50000;
   private static final String TAG         = "ShardClient";
   private static final String SESSION_TAG = "session";
   static final String WIFILOCK            = "OPTION_PERM_WIFILOCK";
-  private static final int SOCKET_TIMEOUT = 10000;
+  private static final int SOCKET_TIMEOUT = 15000;
   
   private WifiManager.WifiLock wifilock;
   private Socket socket;
@@ -43,9 +45,12 @@ public class ShardClient extends DefaultHandler implements Runnable {
   private boolean mRun;
   private XMLReader parser;
   private Context mContext;
-  
+  private Thread sendingThread;
+  private ArrayList<String> sendQueue;
+    
   public ShardClient(Context ctx) {
-    mContext = ctx;
+    mContext  = ctx;
+    sendQueue = new ArrayList<String>();
   }
   
   public void connect() {
@@ -53,16 +58,25 @@ public class ShardClient extends DefaultHandler implements Runnable {
       throw new RuntimeException("Already connected!");
     }
     acquireWifiLock(mContext);
-    connectionThread = new Thread(this);
+    
+    sendingThread    = new Thread(sendingRunnable);
+    connectionThread = new Thread(connectionRunnable);
     connectionThread.start();
   }
   
   public void send(Node node) {
-    send(NodeTransformer.nodeToXml(node));
+    synchronized (sendQueue) {
+      sendQueue.add(NodeTransformer.nodeToXml(node));
+    }
   }
   
   public void send(String s) {
-    Log.v(TAG, "Sending: "+ s);
+    synchronized (sendQueue) {
+      sendQueue.add(s);
+    }
+  }
+  
+  private void push(String s) {
     if (out != null) {
       out.println(s);
       out.flush();
@@ -72,55 +86,13 @@ public class ShardClient extends DefaultHandler implements Runnable {
   public void disconnect() {
     mRun = false;
     try {
-      send("</session>");
-      socket.close();
+      if (socket != null) {
+        send("</session>");
+        socket.close();
+      }
     } catch (IOException e) {
       e.printStackTrace();
     }
-  }
-  
-  @Override
-  public void run() {
-    mRun = true;
-    
-    try {
-      Log.i(TAG, "Connecting: " + SERVERIP);
-      SocketAddress socketAddress = new InetSocketAddress(SERVERIP, SERVERPORT);
-      try {
-        this.socket = new Socket();
-        this.socket.connect(socketAddress, SOCKET_TIMEOUT);
-        out         = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())));
-        
-        SAXParserFactory saxPF  = SAXParserFactory.newInstance();
-        SAXParser saxP          = saxPF.newSAXParser();
-        this.parser             = saxP.getXMLReader();
-        
-        parser.setContentHandler(this);
-        delegate.onConnect();
-        parser.parse(new InputSource(socket.getInputStream()));
-      } catch (IOException e) {
-        mRun = false;
-      } catch (ParserConfigurationException e) {
-        mRun = false;
-        e.printStackTrace();
-      } catch (SAXException e) {
-        mRun = false;
-        e.printStackTrace();
-      } finally {
-        mRun = false;
-        if (socket != null) { socket.close(); }
-      }
-    } catch (UnknownHostException e) {
-      mRun = false;
-    } catch (IOException e) {
-      mRun = false;
-    }
-    
-    Log.i(TAG, "Disconnected...");
-    mRun = false;
-    connectionThread = null;
-    releaseWifilock();
-    delegate.onDisconnect();
   }
   
   @Override
@@ -202,8 +174,7 @@ public class ShardClient extends DefaultHandler implements Runnable {
   
   public void releaseWifilock() {
     Log.d(TAG, "releaseWifilock called");
-    if ((wifilock != null) && (wifilock.isHeld()))
-    {
+    if ((wifilock != null) && (wifilock.isHeld())) {
       wifilock.release();
       Log.d(TAG, "Wifilock " + WIFILOCK + " released");
     }
@@ -216,6 +187,77 @@ public class ShardClient extends DefaultHandler implements Runnable {
     }
     return false;
   }
+  
+  private Runnable sendingRunnable    = new Runnable() {
+    @Override
+    public void run() {
+      
+      while(mRun) {
+        synchronized (sendQueue) {
+          for (String node : sendQueue) {
+            push(node);
+          }
+          
+          sendQueue.clear();
+        }
+        
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          break;
+        }
+      }
+    }
+  };
+  
+  private Runnable connectionRunnable = new Runnable() {
+    @Override
+    public void run() {
+      try {
+        Log.i(TAG, "Connecting: " + SERVERIP);
+        SocketAddress socketAddress = new InetSocketAddress(SERVERIP, SERVERPORT);
+        try {
+          ShardClient.this.socket = new Socket();
+          ShardClient.this.socket.connect(socketAddress, SOCKET_TIMEOUT);
+          
+          out                     = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())));
+          SAXParserFactory saxPF  = SAXParserFactory.newInstance();
+          SAXParser saxP          = saxPF.newSAXParser();
+          ShardClient.this.parser             = saxP.getXMLReader();
+          
+          parser.setContentHandler(ShardClient.this);
+          mRun = true;
+          delegate.onConnect();
+          sendingThread.start();
+          parser.parse(new InputSource(socket.getInputStream()));
+        } catch (IOException e) {
+          mRun = false;
+        } catch (ParserConfigurationException e) {
+          mRun = false;
+          e.printStackTrace();
+        } catch (SAXException e) {
+          mRun = false;
+          e.printStackTrace();
+        } finally {
+          mRun = false;
+          if (socket != null) { socket.close(); }
+        }
+      } catch (UnknownHostException e) {
+        mRun = false;
+      } catch (IOException e) {
+        mRun = false;
+      }
+      
+      Log.i(TAG, "Disconnected...");
+      ShardClient.this.parser       = null;
+      ShardClient.this.out          = null;
+      ShardClient.this.socket       = null;
+      mRun                          = false;
+      connectionThread              = null;
+      releaseWifilock();
+      delegate.onDisconnect();
+    }
+  };
   
   public interface ShardClientInterface {
     public void onResponse(Response response);

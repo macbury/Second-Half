@@ -11,7 +11,8 @@ public class User{
   private int    id;
   @DatabaseField(canBeNull=false)
   private String name;
-  
+  @DatabaseField(canBeNull=false)
+  private boolean inRelationShip;
   @ForeignCollectionField(eager=true)
   private ForeignCollection<Peer> peers;
 
@@ -38,6 +39,14 @@ public class User{
 
   public void setPeers(ForeignCollection<Peer> peers) {
     this.peers = peers;
+  }
+
+  public boolean isInRelationShip() {
+    return inRelationShip;
+  }
+
+  public void setInRelationShip(boolean inRelationShip) {
+    this.inRelationShip = inRelationShip;
   }
 
 }

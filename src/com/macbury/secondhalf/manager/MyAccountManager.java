@@ -17,6 +17,7 @@ import android.util.Log;
 import com.j256.ormlite.stmt.query.In;
 import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.activity.LoginActivity;
+import com.macbury.secondhalf.model.User;
 
 public class MyAccountManager implements AccountManagerCallback<Bundle> {
   private static final String TAG         = "MyAccountManager";
@@ -78,6 +79,11 @@ public class MyAccountManager implements AccountManagerCallback<Bundle> {
     } else {
       return null;
     }
+  }
+  
+  public User getCurrentUser() {
+    Account account = getCurrentAccount();
+    return App.shared().getDatabaseManager().findUserOrInitializeByName(account.name);
   }
   
   public boolean haveConnectedAccount() {

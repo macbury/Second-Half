@@ -1,20 +1,11 @@
 package com.macbury.secondhalf.activity;
 
-import org.json.JSONObject;
 
 import com.androidquery.AQuery;
-import com.androidquery.callback.AjaxCallback;
-import com.androidquery.callback.AjaxStatus;
 import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.R;
-import com.macbury.secondhalf.R.id;
-import com.macbury.secondhalf.R.layout;
-import com.macbury.secondhalf.R.menu;
-import com.macbury.secondhalf.R.string;
 import com.macbury.secondhalf.manager.AccountAuthenticatorManager;
-import com.macbury.secondhalf.manager.ApiManager;
 import com.macbury.secondhalf.manager.EncryptionManager;
-import com.macbury.secondhalf.manager.MyAccountManager;
 import com.macbury.secondhalf.p2p.Action;
 import com.macbury.secondhalf.p2p.Response;
 import com.macbury.secondhalf.p2p.ShardClient;
@@ -26,13 +17,14 @@ import android.accounts.AccountManager;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncTask;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -40,6 +32,7 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 public class LoginActivity extends AccountAuthenticatorActivity implements ShardClientInterface {
@@ -62,7 +55,7 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
   private AQuery query;
   private ShardClient client;
   private Action loginAction;
-  
+  private Action captchaAction;
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -73,7 +66,7 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     
     client = new ShardClient(getApplicationContext());
     client.setDelegate(this);
-    
+    client.connect();
     
     mEmail          = getIntent().getStringExtra(EXTRA_EMAIL);
     mEmailView      = (EditText) findViewById(R.id.email);
@@ -130,7 +123,7 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
 
     boolean cancel = false;
     View focusView = null;
-
+    loginAction    = null;
     if (TextUtils.isEmpty(mPassword)) {
       mPasswordView.setError(getString(R.string.error_field_required));
       focusView = mPasswordView;
@@ -196,7 +189,22 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
 
   @Override
   public void onResponse(final Response response) {
-    if (loginAction.getId().equals(response.getId())) {
+    if (captchaAction != null && captchaAction.getId().equals(response.getId())) {
+      String base64Image        = response.getParam("image"); 
+      captchaAction             = null;
+      byte[] decodedByte        = Base64.decode(base64Image, 0);
+      final Bitmap captchaImage = BitmapFactory.decodeByteArray(decodedByte, 0, decodedByte.length); 
+      
+      runOnUiThread(new Runnable() {
+        @Override
+        public void run() {
+          ImageView imageView = (ImageView)findViewById(R.id.captchaImageView);
+          imageView.setImageBitmap(captchaImage);
+        }
+      });
+      
+    } else if (loginAction.getId().equals(response.getId())) {
+      loginAction = null;
       client.disconnect();
       if (response.isSuccess()) {
         final String token = response.getParam("token"); 
@@ -220,6 +228,10 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
           }
         });
       }
+    }
+    
+    if (loginAction == null) {
+      client.disconnect();
     }
   }
 
@@ -256,7 +268,9 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
 
   @Override
   protected void onStop() {
-    client.disconnect();
+    if (client != null) {
+      client.disconnect();
+    }
     super.onStop();
   }
 
@@ -273,15 +287,20 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
 
   @Override
   public void onConnect() {
-    EncryptionManager eManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
-    loginAction = Action.buildActionForRegisterOrLogin(
-      mEmail, 
-      mPassword, 
-      EncryptionManager.getDeviceUID(), 
-      eManager.getBase64SigningPublicKey(), 
-      eManager.getBase64EncryptionPublicKey()
-    );
-    client.send(loginAction);
+    if (loginAction != null) {
+      EncryptionManager eManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
+      loginAction = Action.buildActionForRegisterOrLogin(
+        mEmail, 
+        mPassword, 
+        EncryptionManager.getDeviceUID(), 
+        eManager.getBase64SigningPublicKey(), 
+        eManager.getBase64EncryptionPublicKey()
+      );
+      client.send(loginAction);
+    }
+    
+    captchaAction = Action.buildCaptchaAction();
+    client.send(captchaAction);
   }
 
 }

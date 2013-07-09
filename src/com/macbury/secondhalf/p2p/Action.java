@@ -1,10 +1,6 @@
 package com.macbury.secondhalf.p2p;
 
-import java.util.HashMap;
 import java.util.UUID;
-
-import com.macbury.secondhalf.App;
-
 
 public class Action extends Node {
   static final String ACTION_TAG  = "action";
@@ -40,6 +36,11 @@ public class Action extends Node {
     action.addParam("token", token);
     return action;
   }
-
+  
+  public static Action buildCaptchaAction() {
+    Action action = new Action();
+    action.setType("captcha");
+    return action;
+  }
   
 }

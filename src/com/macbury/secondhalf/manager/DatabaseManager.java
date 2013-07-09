@@ -17,7 +17,7 @@ import com.macbury.secondhalf.model.User;
 
 public class DatabaseManager extends OrmLiteSqliteOpenHelper {
   private static final String DATABASE_NAME   = "shards.db";
-  private static final int DATABASE_VERSION   = 7;
+  private static final int DATABASE_VERSION   = 8;
   private static final String TAG             = "DatabaseManager";
   private Dao<User, Integer> userDao          = null;
   private Dao<Peer, Integer> peerDao          = null;

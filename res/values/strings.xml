@@ -6,5 +6,7 @@
     <string name="hello_world">Hello world!</string>
     <string name="notification_login_error_title">Cannot login</string>
     <string name="notification_login_error_summary">Tap to login</string>
-
+    <string name="notification_relationship_error_title">Not in relationship</string>
+    <string name="notification_relationship_error_summary">Tap to invite</string>
+    <string name="text_view_captcha">Enter captcha</string>
 </resources>

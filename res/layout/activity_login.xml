@@ -38,6 +38,8 @@
 
         <LinearLayout
             style="@style/LoginFormContainer"
+            android:layout_width="match_parent"
+            android:layout_height="fill_parent"
             android:orientation="vertical" >
 
             <EditText
@@ -60,6 +62,23 @@
                 android:inputType="textPassword"
                 android:maxLines="1"
                 android:singleLine="true" />
+
+            <ImageView
+                android:id="@+id/captchaImageView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:scaleType="center" />
+
+            <EditText
+                android:id="@+id/captchaTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:hint="@string/text_view_captcha" >
+
+                <requestFocus />
+            </EditText>
 
             <Button
                 android:id="@+id/sign_in_button"
