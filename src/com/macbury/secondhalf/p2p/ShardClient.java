@@ -39,31 +39,47 @@ public class ShardClient extends DefaultHandler {
   private WifiManager.WifiLock wifilock;
   private Socket socket;
   private PrintWriter out;
-  private Thread connectionThread;
+  
   private ShardClientInterface delegate;
   private Node currentNode;
   private boolean mRun;
   private XMLReader parser;
   private Context mContext;
   private Thread sendingThread;
+  private Thread connectionThread;
+  private Thread pingThread;
   private ArrayList<String> sendQueue;
-    
+  private int closeAfterIdle = 5;
+  private int closeTimer     = 0;
+  
   public ShardClient(Context ctx) {
     mContext  = ctx;
     sendQueue = new ArrayList<String>();
   }
   
   public void connect() {
-    if (connectionThread != null) {
+    if (isConnected()) {
       throw new RuntimeException("Already connected!");
     }
     acquireWifiLock(mContext);
     
     sendingThread    = new Thread(sendingRunnable);
     connectionThread = new Thread(connectionRunnable);
+    pingThread       = new Thread(pingRunnable);
     connectionThread.start();
   }
   
+  public boolean isConnected() {
+    return (connectionThread != null);
+  }
+  
+  public void send(Node node, boolean connect) {
+    send(node);
+    if (!isConnected()) {
+      connect();
+    }
+  }
+
   public void send(Node node) {
     synchronized (sendQueue) {
       sendQueue.add(NodeTransformer.nodeToXml(node));
@@ -76,7 +92,7 @@ public class ShardClient extends DefaultHandler {
     }
   }
   
-  private void push(String s) {
+  private synchronized void push(String s) {
     if (out != null) {
       out.println(s);
       out.flush();
@@ -188,23 +204,53 @@ public class ShardClient extends DefaultHandler {
     return false;
   }
   
+  public int getCloseAfterIdle() {
+    return closeAfterIdle;
+  }
+
+  public void setCloseAfterIdle(int closeAfterIdle) {
+    this.closeAfterIdle = closeAfterIdle;
+  }
+  
+  private Runnable pingRunnable       = new Runnable() {
+    @Override
+    public void run() {
+      closeTimer = closeAfterIdle;
+      
+      while(mRun) {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          break;
+        }
+        
+        send(Action.buildPing());
+        
+        closeTimer--;
+        if (closeTimer <= 0) {
+          disconnect();
+        }
+      }
+    }
+  };
+  
   private Runnable sendingRunnable    = new Runnable() {
     @Override
     public void run() {
       
       while(mRun) {
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          break;
+        }
+        
         synchronized (sendQueue) {
           for (String node : sendQueue) {
             push(node);
           }
           
           sendQueue.clear();
-        }
-        
-        try {
-          Thread.sleep(100);
-        } catch (InterruptedException e) {
-          break;
         }
       }
     }
@@ -223,12 +269,13 @@ public class ShardClient extends DefaultHandler {
           out                     = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())));
           SAXParserFactory saxPF  = SAXParserFactory.newInstance();
           SAXParser saxP          = saxPF.newSAXParser();
-          ShardClient.this.parser             = saxP.getXMLReader();
+          ShardClient.this.parser = saxP.getXMLReader();
           
           parser.setContentHandler(ShardClient.this);
           mRun = true;
           delegate.onConnect();
           sendingThread.start();
+          pingThread.start();
           parser.parse(new InputSource(socket.getInputStream()));
         } catch (IOException e) {
           mRun = false;
@@ -254,6 +301,8 @@ public class ShardClient extends DefaultHandler {
       ShardClient.this.socket       = null;
       mRun                          = false;
       connectionThread              = null;
+      pingThread                    = null;
+      sendingThread                 = null;
       releaseWifilock();
       delegate.onDisconnect();
     }

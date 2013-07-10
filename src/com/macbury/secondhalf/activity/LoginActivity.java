@@ -49,6 +49,7 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
   private boolean working = false;
   private EditText mEmailView;
   private EditText mPasswordView;
+  private EditText mCaptchaEditView;
   private View mLoginFormView;
   private View mLoginStatusView;
   private TextView mLoginStatusMessageView;
@@ -56,6 +57,7 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
   private ShardClient client;
   private Action loginAction;
   private Action captchaAction;
+  private ImageView mCaptchaImageView;
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -66,6 +68,10 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     
     client = new ShardClient(getApplicationContext());
     client.setDelegate(this);
+    
+    captchaAction = Action.buildCaptchaAction();
+    client.send(captchaAction);
+    
     client.connect();
     
     mEmail          = getIntent().getStringExtra(EXTRA_EMAIL);
@@ -86,10 +92,13 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
           }
         });
 
-    mLoginFormView = findViewById(R.id.login_form);
-    mLoginStatusView = findViewById(R.id.login_status);
+    mLoginFormView          = findViewById(R.id.login_form);
+    mLoginStatusView        = findViewById(R.id.login_status);
     mLoginStatusMessageView = (TextView) findViewById(R.id.login_status_message);
-
+    
+    mCaptchaEditView        = (EditText)findViewById(R.id.login_captcha_text_view);
+    mCaptchaImageView       = (ImageView)findViewById(R.id.login_captcha_image_view);
+    
     findViewById(R.id.sign_in_button).setOnClickListener(
         new View.OnClickListener() {
           @Override
@@ -153,6 +162,18 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
       mLoginStatusMessageView.setText(R.string.login_progress_signing_in);
       showProgress(true);
       working = true;
+      
+      EncryptionManager eManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
+      loginAction = Action.buildActionForRegisterOrLogin(
+        mEmail, 
+        mPassword, 
+        EncryptionManager.getDeviceUID(), 
+        eManager.getBase64SigningPublicKey(), 
+        eManager.getBase64EncryptionPublicKey(),
+        mCaptchaEditView.getText().toString()
+      );
+      client.send(loginAction);
+      
       client.connect();
     }
   }
@@ -197,12 +218,8 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
       
       runOnUiThread(new Runnable() {
         @Override
-        public void run() {
-          ImageView imageView = (ImageView)findViewById(R.id.captchaImageView);
-          imageView.setImageBitmap(captchaImage);
-        }
+        public void run() { mCaptchaImageView.setImageBitmap(captchaImage); }
       });
-      
     } else if (loginAction.getId().equals(response.getId())) {
       loginAction = null;
       client.disconnect();
@@ -271,6 +288,11 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     if (client != null) {
       client.disconnect();
     }
+    
+    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+    imm.hideSoftInputFromInputMethod(mPasswordView.getWindowToken(), 0);
+    imm.hideSoftInputFromInputMethod(mEmailView.getWindowToken(), 0);
+    imm.hideSoftInputFromInputMethod(mCaptchaEditView.getWindowToken(), 0);
     super.onStop();
   }
 
@@ -287,20 +309,7 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
 
   @Override
   public void onConnect() {
-    if (loginAction != null) {
-      EncryptionManager eManager = EncryptionManager.generatePrivAndPubKey(this.getApplicationContext());
-      loginAction = Action.buildActionForRegisterOrLogin(
-        mEmail, 
-        mPassword, 
-        EncryptionManager.getDeviceUID(), 
-        eManager.getBase64SigningPublicKey(), 
-        eManager.getBase64EncryptionPublicKey()
-      );
-      client.send(loginAction);
-    }
     
-    captchaAction = Action.buildCaptchaAction();
-    client.send(captchaAction);
   }
 
 }

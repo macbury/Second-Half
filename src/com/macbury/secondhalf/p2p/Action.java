@@ -19,7 +19,7 @@ public class Action extends Node {
     this.type = type;
   }
   
-  public static Action buildActionForRegisterOrLogin(String email, String password, String device, String signingKey, String encryptionKey) {
+  public static Action buildActionForRegisterOrLogin(String email, String password, String device, String signingKey, String encryptionKey, String captcha) {
     Action action = new Action();
     action.setType("register-or-login");
     action.addParam("email", email);
@@ -27,6 +27,7 @@ public class Action extends Node {
     action.addParam("device", device);
     action.addParam("signing-key", signingKey);
     action.addParam("encryption-key", encryptionKey);
+    action.addParam("captcha", captcha);
     return action;
   }
 
@@ -41,6 +42,10 @@ public class Action extends Node {
     Action action = new Action();
     action.setType("captcha");
     return action;
+  }
+
+  public static String buildPing() {
+    return "<p/>";
   }
   
 }

@@ -64,14 +64,14 @@
                 android:singleLine="true" />
 
             <ImageView
-                android:id="@+id/captchaImageView"
+                android:id="@+id/login_captcha_image_view"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:scaleType="center" />
 
             <EditText
-                android:id="@+id/captchaTextView"
+                android:id="@+id/login_captcha_text_view"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
