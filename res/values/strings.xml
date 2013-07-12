@@ -9,4 +9,6 @@
     <string name="notification_relationship_error_title">Not in relationship</string>
     <string name="notification_relationship_error_summary">Tap to invite</string>
     <string name="text_view_captcha">Enter captcha</string>
+    <string name="error_connection">Connection error</string>
+    <string name="status_loading">Loading</string>
 </resources>

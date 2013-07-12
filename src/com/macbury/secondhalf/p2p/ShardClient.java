@@ -8,6 +8,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Stack;
@@ -259,6 +260,7 @@ public class ShardClient extends DefaultHandler {
   private Runnable connectionRunnable = new Runnable() {
     @Override
     public void run() {
+      boolean error = false;
       try {
         Log.i(TAG, "Connecting: " + SERVERIP);
         SocketAddress socketAddress = new InetSocketAddress(SERVERIP, SERVERPORT);
@@ -277,22 +279,26 @@ public class ShardClient extends DefaultHandler {
           sendingThread.start();
           pingThread.start();
           parser.parse(new InputSource(socket.getInputStream()));
-        } catch (IOException e) {
-          mRun = false;
         } catch (ParserConfigurationException e) {
-          mRun = false;
+          mRun  = false;
+          error = true;
           e.printStackTrace();
         } catch (SAXException e) {
-          mRun = false;
+          mRun  = false;
+          error = true;
           e.printStackTrace();
         } finally {
-          mRun = false;
+          error = true;
+          mRun  = false;
           if (socket != null) { socket.close(); }
         }
       } catch (UnknownHostException e) {
-        mRun = false;
+        mRun  = false;
+        error = true;
       } catch (IOException e) {
-        mRun = false;
+        mRun  = false;
+        error = true;
+        delegate.onConnectionError(e);
       }
       
       Log.i(TAG, "Disconnected...");
@@ -304,14 +310,15 @@ public class ShardClient extends DefaultHandler {
       pingThread                    = null;
       sendingThread                 = null;
       releaseWifilock();
-      delegate.onDisconnect();
+      delegate.onDisconnect(error);
     }
   };
   
   public interface ShardClientInterface {
+    public void onConnectionError(IOException e);
     public void onResponse(Response response);
     public void onAction(Action action);
-    public void onDisconnect();
+    public void onDisconnect(boolean haveError);
     public void onConnect();
   }
 }

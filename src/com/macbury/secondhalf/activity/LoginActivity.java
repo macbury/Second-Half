@@ -1,9 +1,12 @@
 package com.macbury.secondhalf.activity;
 
 
+import java.io.IOException;
+
 import com.androidquery.AQuery;
 import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.R;
+import com.macbury.secondhalf.activity.state.BaseState;
 import com.macbury.secondhalf.manager.AccountAuthenticatorManager;
 import com.macbury.secondhalf.manager.EncryptionManager;
 import com.macbury.secondhalf.p2p.Action;
@@ -17,7 +20,10 @@ import android.accounts.AccountManager;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -35,7 +41,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-public class LoginActivity extends AccountAuthenticatorActivity implements ShardClientInterface {
+public class LoginActivity extends AccountAuthenticatorActivity implements OnClickListener {
   public static final String EXTRA_EMAIL                    = "EXTRA_EMAIL";
   public static final String EXTRA_AUTH_TOKEN_TYPE          = "EXTRA_AUTH_TOKEN_TYPE";
   public static final String EXTRA_RETURN_TO_MAIN_ACTIVITY  = "EXTRA_RETURN_TO_MAIN_ACTIVITY";
@@ -58,6 +64,9 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
   private Action loginAction;
   private Action captchaAction;
   private ImageView mCaptchaImageView;
+  
+  private BaseState currentState;
+  
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -66,13 +75,7 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
 
     App.shared().clearData();
     
-    client = new ShardClient(getApplicationContext());
-    client.setDelegate(this);
-    
-    captchaAction = Action.buildCaptchaAction();
-    client.send(captchaAction);
-    
-    client.connect();
+    client          = new ShardClient(getApplicationContext());
     
     mEmail          = getIntent().getStringExtra(EXTRA_EMAIL);
     mEmailView      = (EditText) findViewById(R.id.email);
@@ -111,6 +114,8 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     if (intent != null && intent.getBooleanExtra(EXTRA_RETURN_TO_MAIN_ACTIVITY, false)) {
       startedFromMainActivity = true;
     }
+    
+    setCurrentState(mSetupFormState);
   }
 
   @Override
@@ -208,50 +213,6 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     }
   }
 
-  @Override
-  public void onResponse(final Response response) {
-    if (captchaAction != null && captchaAction.getId().equals(response.getId())) {
-      String base64Image        = response.getParam("image"); 
-      captchaAction             = null;
-      byte[] decodedByte        = Base64.decode(base64Image, 0);
-      final Bitmap captchaImage = BitmapFactory.decodeByteArray(decodedByte, 0, decodedByte.length); 
-      
-      runOnUiThread(new Runnable() {
-        @Override
-        public void run() { mCaptchaImageView.setImageBitmap(captchaImage); }
-      });
-    } else if (loginAction.getId().equals(response.getId())) {
-      loginAction = null;
-      client.disconnect();
-      if (response.isSuccess()) {
-        final String token = response.getParam("token"); 
-        runOnUiThread(new Runnable() {
-          @Override
-          public void run() {
-            finishWithToken(token);
-          }
-        });
-      } else {
-        client.disconnect();
-        runOnUiThread(new Runnable() {
-          @Override
-          public void run() {
-            showProgress(false);
-            mPasswordView.setError(response.getParam("error"));
-            mPasswordView.requestFocus();
-            
-            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.toggleSoftInput(InputMethodManager.SHOW_FORCED,0);
-          }
-        });
-      }
-    }
-    
-    if (loginAction == null) {
-      client.disconnect();
-    }
-  }
-
   protected void finishWithToken(String token) {
     String accountType = this.getIntent().getStringExtra(EXTRA_AUTH_TOKEN_TYPE);
     if (accountType == null) {
@@ -279,11 +240,6 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
   }
 
   @Override
-  public void onAction(Action action) {
-    
-  }
-
-  @Override
   protected void onStop() {
     if (client != null) {
       client.disconnect();
@@ -295,21 +251,180 @@ public class LoginActivity extends AccountAuthenticatorActivity implements Shard
     imm.hideSoftInputFromInputMethod(mCaptchaEditView.getWindowToken(), 0);
     super.onStop();
   }
-
-  @Override
-  public void onDisconnect() {
-    working = false;
-    runOnUiThread(new Runnable() {
-      @Override
-      public void run() {
-        showProgress(false);
-      }
-    });
+  
+  public BaseState getCurrentState() {
+    return currentState;
   }
 
-  @Override
-  public void onConnect() {
+  public void setCurrentState(BaseState currentState) {
+    if (this.currentState != null) {
+      this.currentState.onStateExit();
+    }
+    this.currentState = currentState;
+    this.currentState.onStateEnter();
+    client.setDelegate(this.currentState);
+  }
+
+
+  private BaseState mSetupFormState = new BaseState() {
     
+    @Override
+    public void onResponse(Response response) {
+      if (captchaAction != null && captchaAction.getId().equals(response.getId())) {
+        String base64Image        = response.getParam("image"); 
+        captchaAction             = null;
+        byte[] decodedByte        = Base64.decode(base64Image, 0);
+        final Bitmap captchaImage = BitmapFactory.decodeByteArray(decodedByte, 0, decodedByte.length); 
+        
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() { 
+            client.disconnect();
+            mCaptchaImageView.setImageBitmap(captchaImage);
+            setCurrentState(mTryToLoginState);
+          }
+        });
+      } 
+    }
+    
+    @Override
+    public void onDisconnect(boolean haveError) {
+      working = false;
+      if (haveError) {
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            LoginActivity.this.showConnectionError(); 
+          }
+        });
+      }
+    }
+    
+    @Override
+    public void onConnectionError(IOException e) {
+      Log.e(TAG, "Connection error", e);
+    }
+    
+    @Override
+    public void onConnect() {
+      working = true;
+    }
+    
+    @Override
+    public void onAction(Action action) {
+      // TODO Auto-generated method stub
+      
+    }
+    
+    @Override
+    public void onStateExit() {
+      runOnUiThread(new Runnable() {
+        @Override
+        public void run() {
+          showProgress(false);
+        }
+      });
+      
+    }
+    
+    @Override
+    public void onStateEnter() {
+      mLoginStatusMessageView.setText(R.string.status_loading);
+      showProgress(true);
+      captchaAction = Action.buildCaptchaAction();
+      client.send(captchaAction);
+      
+      client.connect();
+    }
+  };
+  
+  private BaseState mTryToLoginState = new BaseState() {
+    
+    @Override
+    public void onResponse(final Response response) {
+      if (loginAction.getId().equals(response.getId())) {
+        loginAction = null;
+        client.disconnect();
+        if (response.isSuccess()) {
+          final String token = response.getParam("token"); 
+          runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+              finishWithToken(token);
+            }
+          });
+        } else {
+          client.disconnect();
+          runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+              showProgress(false);
+              mPasswordView.setError(response.getParam("error"));
+              mPasswordView.requestFocus();
+              
+              //InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+              //imm.toggleSoftInput(InputMethodManager.SHOW_FORCED,0);
+            }
+          });
+        }
+      }
+      
+      if (loginAction == null) {
+        client.disconnect();
+      }
+    }
+    
+    @Override
+    public void onDisconnect(boolean haveError) {
+      working = false;
+      if (haveError) {
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            LoginActivity.this.showConnectionError(); 
+          }
+        });
+      }
+    }
+    
+    @Override
+    public void onConnectionError(IOException e) {
+      
+    }
+    
+    @Override
+    public void onConnect() {
+      working = true;
+    }
+    
+    @Override
+    public void onAction(Action action) {
+      // TODO Auto-generated method stub
+      
+    }
+    
+    @Override
+    public void onStateExit() {
+      working = false;
+    }
+    
+    @Override
+    public void onStateEnter() {
+      working = false;
+    }
+  };
+
+  protected void showConnectionError() {
+    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    builder.setMessage(R.string.error_connection);
+    builder.setCancelable(false);
+    builder.setPositiveButton("OK", this);
+    builder.create().show();
   }
 
+  @Override
+  public void onClick(DialogInterface dialog, int button) {
+    dialog.dismiss();
+    finish();
+  }
 }

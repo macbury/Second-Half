@@ -1,5 +1,7 @@
 package com.macbury.secondhalf.service;
 
+import java.io.IOException;
+
 import com.macbury.secondhalf.App;
 import com.macbury.secondhalf.R;
 import com.macbury.secondhalf.activity.InviteActivity;
@@ -19,6 +21,7 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.widget.Toast;
 
 public class P2PNetworkService extends Service implements ShardClientInterface {
   private static final String TAG                       = "P2PNetworkService";
@@ -57,11 +60,6 @@ public class P2PNetworkService extends Service implements ShardClientInterface {
   @Override
   public void onAction(Action action) {
     //Log.i(TAG, NodeTransformer.nodeToXml(action));
-  }
-
-  @Override
-  public void onDisconnect() {
-    stopSelf();
   }
 
   @Override
@@ -113,5 +111,16 @@ public class P2PNetworkService extends Service implements ShardClientInterface {
     
     NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
     mNotificationManager.notify(NOTIFICATION_LOGIN_ID, builder.build());
+  }
+
+  @Override
+  public void onConnectionError(IOException e) {
+    Log.e(TAG, "Connection error", e);
+    Toast.makeText(this, R.string.error_connection, Toast.LENGTH_LONG).show();
+  }
+
+  @Override
+  public void onDisconnect(boolean haveError) {
+    stopSelf();
   }
 }
